@@ -1,4 +1,4 @@
-module termi
+module ssh-bbs
 
 go 1.22.5
 
