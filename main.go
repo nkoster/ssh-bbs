@@ -1,16 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gliderlabs/ssh"
-	"io"
 	"log"
 	"strings"
+	"time"
 )
 
 func main() {
 	ssh.Handle(func(s ssh.Session) {
-		clearScreen(s)
-		items := []string{"Item1", "Item2", "Item3"}
+		fmt.Printf("SSH: %s@%s", s.User(), s.RemoteAddr())
+		waitForBanner(s)
+		items := []string{"Item 1", "Item 2", "Item 3"}
 		selectedIndex := 0
 
 		drawMenu(s, items, selectedIndex)
@@ -19,7 +21,7 @@ func main() {
 		for {
 			_, err := s.Read(input)
 			if err != nil {
-				io.WriteString(s, "\nFailed to read input: "+err.Error()+"\n")
+				w(s, "\nFailed to read input: "+err.Error()+"\n")
 				return
 			}
 
@@ -35,7 +37,8 @@ func main() {
 					drawMenu(s, items, selectedIndex)
 				}
 			case 10, 13: // enter key (newline and carriage return)
-				io.WriteString(s, "\nYou selected "+items[selectedIndex]+"!\n")
+				w(s, "\nYou selected "+items[selectedIndex]+"!\n")
+				fmt.Printf(" (%s)\n", items[selectedIndex])
 				return
 			}
 		}
@@ -55,8 +58,15 @@ func main() {
 	log.Fatal(ssh.ListenAndServe(":2222", nil, serverOptions...))
 }
 
+func waitForBanner(s ssh.Session) {
+	// Wait a second...
+	time.Sleep(time.Second)
+	// ...then clear the screen
+	w(s, "\033[H\033[2J")
+}
+
 func clearScreen(s ssh.Session) {
-	io.WriteString(s, "\033[H\033[2J")
+	w(s, "\033[H\033[2J")
 }
 
 func drawMenu(s ssh.Session, items []string, selectedIndex int) {
@@ -72,17 +82,17 @@ func drawMenu(s ssh.Session, items []string, selectedIndex int) {
 	maxWidth += 2 // Add padding and marker space
 
 	// Draw the top of the box
-	io.WriteString(s, "┌"+strings.Repeat("─", maxWidth)+"┐\n")
+	w(s, "┌"+strings.Repeat("─", maxWidth)+"┐\n")
 
 	// Draw each item
 	for i, item := range items {
 		if i == selectedIndex {
-			io.WriteString(s, "│\033[42m\033[1m\033[30m "+item+" \033[0m"+strings.Repeat("", maxWidth-len(item))+"│\n")
+			w(s, "│\033[0;102m\033[1m\033[30m "+item+" \033[0m"+strings.Repeat("", maxWidth-len(item))+"│\n")
 		} else {
-			io.WriteString(s, "│ "+item+strings.Repeat(" ", maxWidth-len(item)-1)+"│\n")
+			w(s, "│ "+item+strings.Repeat(" ", maxWidth-len(item)-1)+"│\n")
 		}
 	}
 
 	// Draw the bottom of the box
-	io.WriteString(s, "└"+strings.Repeat("─", maxWidth)+"┘\n")
+	w(s, "└"+strings.Repeat("─", maxWidth)+"┘\n")
 }
